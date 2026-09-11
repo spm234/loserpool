@@ -11,6 +11,7 @@ from typing import Optional
 from . import db, importer, live_data, picks
 from .config import LoserPoolConfig
 from .optimizer import full_season_plan, recommend_week
+from .season_moneylines import import_moneyline_grid
 from .season_spreads import import_season_spread_grid
 from .sheets_sync import (
     WEEK_TO_PERIOD,
@@ -107,6 +108,19 @@ def cmd_import_season_spreads(args):
     report = import_season_spread_grid(conn, args.season, text)
     print(
         f"Applied {report.written} grid cells, skipped {report.skipped_bye} bye week(s), "
+        f"{report.skipped_market_data_present} already backed by real market data, and "
+        f"{report.skipped_orientation_conflict} home/away conflicts with the opposing team's row."
+    )
+    conn.close()
+
+
+def cmd_import_season_moneylines(args):
+    conn = db.connect(args.db)
+    text = _read_text(args.file)
+    report = import_moneyline_grid(conn, args.season, text)
+    print(
+        f"Applied {report.written} lines, skipped {report.skipped_bye} bye week(s), "
+        f"{report.skipped_no_line_yet} not-yet-posted (TBD), "
         f"{report.skipped_market_data_present} already backed by real market data, and "
         f"{report.skipped_orientation_conflict} home/away conflicts with the opposing team's row."
     )
@@ -416,6 +430,16 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--season", type=int, required=True)
     sp.add_argument("--file", help="Read from this file instead of stdin")
     sp.set_defaults(func=cmd_import_season_spreads)
+
+    sp = sub.add_parser(
+        "import-season-moneylines",
+        help="Bulk-import a full-season team-x-week moneyline table (see "
+        "loser_pool/season_moneylines.py for the exact shape) — devigs using both teams' "
+        "own lines when available; never overwrites a real market spread already recorded",
+    )
+    sp.add_argument("--season", type=int, required=True)
+    sp.add_argument("--file", help="Read from this file instead of stdin")
+    sp.set_defaults(func=cmd_import_season_moneylines)
 
     sp = sub.add_parser(
         "import-win-totals",

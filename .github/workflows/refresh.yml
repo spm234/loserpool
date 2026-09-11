@@ -24,6 +24,7 @@ env:
   SEASON_YEAR: ${{ vars.SEASON_YEAR || '2026' }}
   SEASON_WEEK1_DATE: ${{ vars.SEASON_WEEK1_DATE || '2026-09-08' }}
   POOL_SHEET_ID: ${{ vars.POOL_SHEET_ID || '1-T6IVmUWv8N_TFzWjyUlHgYCUhzU70Q5xNM-I49FyLc' }}
+  MONEYLINE_SHEET_ID: ${{ vars.MONEYLINE_SHEET_ID || '1ase0EwZKXHSwwGdAXnWhexoYvcet64IOstHxzoOeoZ0' }}
 
 jobs:
   refresh:
@@ -63,6 +64,12 @@ jobs:
 
       - name: Sync picks from the sheet
         run: python -m loser_pool.cli import-sheet-picks --season "$SEASON_YEAR" --file sheet.csv
+
+      - name: Fetch season-long moneyline projections (public CSV export, no auth needed)
+        run: curl -sL "https://docs.google.com/spreadsheets/d/${MONEYLINE_SHEET_ID}/export?format=csv" -o moneylines.csv
+
+      - name: Sync season-long moneyline projections
+        run: python -m loser_pool.cli import-season-moneylines --season "$SEASON_YEAR" --file moneylines.csv
 
       - name: Render dashboard
         run: |

@@ -204,6 +204,26 @@ is pasted back in later. Worth re-pasting occasionally as the season's
 projections move, or once real lines replace them week to week (which
 happens automatically).
 
+**The best option, and what this repo now runs automatically**: a
+season-long *moneyline* table (one row per team, one cell per week —
+`loser_pool/season_moneylines.py`'s docstring has the exact shape) is more
+accurate than a spread grid, because it gives BOTH teams' own line for the
+same game — that's enough to **devig**: convert each side's American-odds
+moneyline to its raw implied probability, then normalize the pair to sum
+to 1, rather than reading one side's spread as an approximation. The
+workflow fetches a fixed public sheet (`MONEYLINE_SHEET_ID`, a repo
+Variable — defaults to the one already wired in) via its CSV export URL
+every run, same no-auth pattern as the pool's pick sheet:
+```
+python -m loser_pool.cli import-season-moneylines --season 2026 --file moneylines.csv
+```
+Same non-clobbering rule as the spread-grid importer — a real market
+spread always wins, and this one additionally supersedes a still-standing
+spread-grid projection for the same game (moneylines are the more precise
+source when both exist). If you're maintaining this sheet yourself,
+editing it is enough — the next scheduled run (or a manual trigger) picks
+up the change automatically, no re-paste through Claude needed.
+
 ## Open assumptions
 
 - **Tie handling** (`tie_treated_as`, default `'bust'`): does a tied game
