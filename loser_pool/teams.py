@@ -58,12 +58,32 @@ _TEAMS = [
 
 ALL_NICKNAMES = [nick for _full, nick, _abbr in _TEAMS]
 
+# Common sportsbook/odds-table abbreviations (e.g. as used in a "full season
+# spreads" grid), which don't all match ESPN's own codes (WAS vs wsh, GB has
+# no ESPN-style 2-letter form here, etc.) — kept separate from _TEAMS' ESPN
+# abbreviations (used for logos) since they serve a different purpose:
+# recognizing pasted odds-table text, not building image URLs.
+_SPORTSBOOK_ABBR_TO_NICKNAME = {
+    "ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
+    "CAR": "Panthers", "CHI": "Bears", "CIN": "Bengals", "CLE": "Browns",
+    "DAL": "Cowboys", "DEN": "Broncos", "DET": "Lions", "GB": "Packers",
+    "HOU": "Texans", "IND": "Colts", "JAX": "Jaguars", "KC": "Chiefs",
+    "LAC": "Chargers", "LAR": "Rams", "LV": "Raiders", "MIA": "Dolphins",
+    "MIN": "Vikings", "NE": "Patriots", "NO": "Saints", "NYG": "Giants",
+    "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
+    "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders",
+}
+
 _ALIAS_TO_NICKNAME: Dict[str, str] = {}
 _NICKNAME_TO_ABBR: Dict[str, str] = {}
 for _full, _nick, _abbr in _TEAMS:
     _ALIAS_TO_NICKNAME[_full.lower()] = _nick
     _ALIAS_TO_NICKNAME[_nick.lower()] = _nick
     _NICKNAME_TO_ABBR[_nick] = _abbr
+for _sb_abbr, _nick in _SPORTSBOOK_ABBR_TO_NICKNAME.items():
+    _ALIAS_TO_NICKNAME.setdefault(_sb_abbr.lower(), _nick)
+
+SPORTSBOOK_ABBRS = set(_SPORTSBOOK_ABBR_TO_NICKNAME.keys())
 
 LOGO_URL_TEMPLATE = "https://a.espncdn.com/i/teamlogos/nfl/500/{abbr}.png"
 

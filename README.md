@@ -162,6 +162,26 @@ python -m loser_pool.cli import-win-totals --season 2026 --week 1 --file win_tot
 python -m loser_pool.cli import-elo-ratings --season 2026 --week 1 --file ratings.csv     # "Team, Rating" per line
 ```
 
+**A better option once you have it**: a full-season "team x week" spread
+grid (a team's own row, one cell per week showing their spread and
+opponent — the shape most season-long-projection pages use) covers the
+whole schedule in one shot, so the league-wide outlook views
+(`team_outlook.py`'s "week-over-week biggest underdogs" and "best week to
+use each team") work across all 18 weeks immediately instead of filling
+in week by week as `sync-week` discovers each one. This tool still can't
+fetch such a page itself (see above), but it can import one you paste in:
+```
+python -m loser_pool.cli import-season-spreads --season 2026 --file season_spreads.txt
+```
+See `loser_pool/season_spreads.py`'s docstring for the exact text shape
+it expects. **A real market spread always wins**: this import only ever
+fills in a game that doesn't have a real spread from `sync-week` yet, and
+refreshing with an updated grid only touches games still on their earlier
+projection — it can't clobber real market data even if a stale projection
+is pasted back in later. Worth re-pasting occasionally as the season's
+projections move, or once real lines replace them week to week (which
+happens automatically).
+
 ## Open assumptions
 
 - **Tie handling** (`tie_treated_as`, default `'bust'`): does a tied game

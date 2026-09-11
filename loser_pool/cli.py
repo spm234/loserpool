@@ -11,6 +11,7 @@ from typing import Optional
 from . import db, importer, live_data, picks
 from .config import LoserPoolConfig
 from .optimizer import full_season_plan, recommend_week
+from .season_spreads import import_season_spread_grid
 from .sheets_sync import (
     WEEK_TO_PERIOD,
     parse_pool_sheet_csv,
@@ -97,6 +98,17 @@ def cmd_import_schedule(args):
     text = _read_text(args.file)
     count = importer.import_schedule(conn, args.season, args.week, text, is_playoffs=args.playoffs)
     print(f"Imported {count} games for week {args.week}.")
+    conn.close()
+
+
+def cmd_import_season_spreads(args):
+    conn = db.connect(args.db)
+    text = _read_text(args.file)
+    report = import_season_spread_grid(conn, args.season, text)
+    print(
+        f"Applied {report.written} grid cells, skipped {report.skipped_bye} bye week(s) "
+        f"and {report.skipped_market_data_present} already backed by real market data."
+    )
     conn.close()
 
 
@@ -370,6 +382,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--file", help="Read from this file instead of stdin")
     sp.add_argument("--playoffs", action="store_true", help="Mark this week as a playoff week")
     sp.set_defaults(func=cmd_import_schedule)
+
+    sp = sub.add_parser(
+        "import-season-spreads",
+        help="Bulk-import a full-season team-x-week spread grid (see loser_pool/season_spreads.py "
+        "for the exact shape) — never overwrites a real market spread already recorded",
+    )
+    sp.add_argument("--season", type=int, required=True)
+    sp.add_argument("--file", help="Read from this file instead of stdin")
+    sp.set_defaults(func=cmd_import_season_spreads)
 
     sp = sub.add_parser(
         "import-win-totals",
