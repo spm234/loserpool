@@ -132,6 +132,18 @@ Run tests with `python -m pytest`.
   table show current pick concentration per team, straight from the
   sheet — useful for the split-pot rule (a team fewer people share is
   worth more if it works out).
+- **League-wide outlook views** (`loser_pool/team_outlook.py`, no entry or
+  lives context — "what does the slate look like", not "what should I
+  pick"): **team usage so far** (how many entries have already burned each
+  team this cycle — every one of the 32 shows up, so it also reads as
+  "what's still wide open"); **week-over-week biggest underdogs** (the
+  top loss-probability team(s) each week, league-wide); **best week to use
+  each team** (per team, which known week projects as its best mismatch,
+  plus its trajectory across every other week already on the board). All
+  three are capped to whatever weeks `sync-week` has actually discovered
+  so far — there's no full 18-week schedule preloaded (see below), so
+  early in the season these will only cover 1-2 weeks and fill in as the
+  season goes.
 
 ## Why Elo, not a real power-rating service
 

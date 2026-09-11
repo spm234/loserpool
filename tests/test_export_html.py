@@ -99,3 +99,37 @@ def test_render_dashboard_html_includes_full_season_path_when_future_weeks_exist
     conn.commit()
     html = render_dashboard_html(conn, 2026, 1)
     assert "Reference full-season path" in html
+
+
+def test_render_dashboard_html_recommendations_appear_before_standings(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert html.index("This week's recommendations") < html.index("Standings")
+
+
+def test_render_dashboard_html_no_banner_text(conn):
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "auto-refreshes" not in html
+
+
+def test_render_dashboard_html_team_usage_section(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    picks.record_pick(conn, 2026, 1, "A", "Jaguars")
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Team usage so far" in html
+    assert "Jaguars" in html
+
+
+def test_render_dashboard_html_weekly_underdogs_and_team_outlook_sections(conn):
+    importer.record_game_result(conn, 2026, 1, "Jaguars", "Browns", favorite="home", margin=20)
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Week-over-week biggest underdogs" in html
+    assert "Best week to use each team" in html
+
+
+def test_render_dashboard_html_no_underdog_sections_when_no_games(conn):
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Week-over-week biggest underdogs" not in html
+    assert "Best week to use each team" not in html

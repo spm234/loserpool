@@ -56,6 +56,8 @@ _TEAMS = [
     ("Washington Commanders", "Commanders", "wsh"),
 ]
 
+ALL_NICKNAMES = [nick for _full, nick, _abbr in _TEAMS]
+
 _ALIAS_TO_NICKNAME: Dict[str, str] = {}
 _NICKNAME_TO_ABBR: Dict[str, str] = {}
 for _full, _nick, _abbr in _TEAMS:
