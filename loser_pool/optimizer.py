@@ -108,8 +108,9 @@ def recommend_week(
     remaining_week_numbers: Optional[List[int]] = None,
     lives_remaining: Optional[int] = None,
     cfg: Optional[LoserPoolConfig] = None,
-    sim_runs: int = 2000,
+    sim_runs: int = 5000,
     top_n_for_sim: int = 5,
+    seed: Optional[int] = 0,
 ) -> List[WeeklyRecommendation]:
     """Ranked candidate picks for one entry's upcoming week, best first.
 
@@ -121,6 +122,15 @@ def recommend_week(
     account for which teams it leaves available for harder future weeks.
     Without a remaining-weeks horizon, only the raw loss-probability
     ranking is returned (p_survive_season_if_picked is None for every row).
+
+    `seed` defaults to a fixed value (not None) deliberately: these
+    survival probabilities are often small and close together (a full
+    18-week survival with only 2 lives is a demanding bar), so an
+    unseeded simulation can flip the top-3 ordering between two calls on
+    identical data purely from Monte Carlo noise — confusing for a
+    dashboard that's supposed to look stable between refreshes when
+    nothing actually changed. Pass seed=None to opt back into fresh
+    randomness each call, or increase sim_runs for tighter estimates.
     """
     cfg = cfg or LoserPoolConfig.load(conn)
     entry = conn.execute("SELECT * FROM lp_entry WHERE id = ?", (entry_id,)).fetchone()
@@ -156,6 +166,7 @@ def recommend_week(
             cfg=cfg,
             runs=sim_runs,
             first_week_p_lose=o.p_lose,
+            seed=seed,
         )
         scored.append(WeeklyRecommendation(o.team, o.opponent, o.is_home, o.p_lose, p_survive, ""))
 

@@ -80,3 +80,14 @@ def test_recommend_week_no_available_teams_returns_empty(conn):
     entry_id = db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
     conn.commit()
     assert recommend_week(conn, 2026, 1, entry_id) == []
+
+
+def test_recommend_week_is_deterministic_by_default(conn):
+    importer.record_game_result(conn, 2026, 1, "TeamA", "TeamB", favorite="home", margin=3)
+    importer.record_game_result(conn, 2026, 2, "TeamC", "TeamD", favorite="home", margin=10)
+    entry_id = db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    recs1 = recommend_week(conn, 2026, 1, entry_id, remaining_week_numbers=[1, 2], sim_runs=200)
+    recs2 = recommend_week(conn, 2026, 1, entry_id, remaining_week_numbers=[1, 2], sim_runs=200)
+    assert [r.team for r in recs1] == [r.team for r in recs2]
+    assert [r.p_survive_season_if_picked for r in recs1] == [r.p_survive_season_if_picked for r in recs2]
