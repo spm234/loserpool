@@ -140,3 +140,13 @@ def test_set_is_mine_flags_existing_entry(conn):
     db.set_is_mine(conn, "Sean M", True)
     entry = db.get_entry_by_name(conn, "Sean M")
     assert entry["is_mine"] == 1
+
+
+def test_record_pick_matches_nickname_against_full_name_schedule(conn):
+    # Schedule discovered via The Odds API stores full names; the sheet
+    # only ever gives nicknames — record_pick must resolve both to the
+    # same canonical team so the pick actually matches the game.
+    importer.import_schedule(conn, 2026, 1, "New England Patriots,Buffalo Bills\n")
+    picks.record_pick(conn, 2026, 1, "SPM", "Patriots", is_mine=True)
+    entry_id = db.get_entry_by_name(conn, "SPM")["id"]
+    assert "Patriots" in picks.used_teams(conn, entry_id, 2026)

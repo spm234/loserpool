@@ -9,6 +9,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from .teams import resolve_team
+
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "sql" / "loser_schema.sql"
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "loser_pool.db"
 
@@ -97,6 +99,12 @@ def get_or_create_week(
 def get_or_create_game(
     conn: sqlite3.Connection, week_id: int, away_team: str, home_team: str
 ) -> int:
+    """Normalizes both team names to their canonical nickname (see
+    teams.resolve_team) before storing/matching — so a game discovered via
+    The Odds API ("New England Patriots") and the same game referenced by
+    nickname elsewhere ("Patriots") always resolve to the same row.
+    """
+    away_team, home_team = resolve_team(away_team), resolve_team(home_team)
     row = conn.execute(
         "SELECT id FROM lp_game WHERE week_id = ? AND away_team = ? AND home_team = ?",
         (week_id, away_team, home_team),

@@ -15,6 +15,7 @@ from typing import List, Optional, Set
 
 from . import db
 from .config import LoserPoolConfig
+from .teams import resolve_team
 
 
 class PickError(ValueError):
@@ -59,7 +60,12 @@ def record_pick(
     entry already eliminated, team already used since the last reset, no
     game for that team in this week's schedule, or a pick already settled
     for this entry/week (a still-pending pick can be corrected freely).
+
+    `team` is normalized to its canonical nickname (teams.resolve_team)
+    before anything else — so a sheet pick of "Patriots" matches a game
+    the schedule stored as "New England Patriots" (from The Odds API).
     """
+    team = resolve_team(team)
     cfg = LoserPoolConfig.load(conn)
     entry_id = db.get_or_create_entry(
         conn, owner_name=owner_name or entry_display_name, display_name=entry_display_name,

@@ -45,10 +45,6 @@ def test_render_dashboard_html_shows_eliminated_and_used_teams(conn):
     assert "Jaguars" in html
 
 
-def test_render_dashboard_html_with_ownership():
-    pass  # covered via CLI integration test instead — ownership needs sheet CSV, not DB
-
-
 def test_render_dashboard_html_ownership_section(conn):
     csv_text = ",Week 1\nEntry A,Jaguars\nEntry B,Jaguars\nEntry C,Bengals\n"
     rows = parse_pool_sheet_csv(csv_text)
@@ -64,3 +60,42 @@ def test_render_dashboard_html_no_my_entries_section_when_none(conn):
     conn.commit()
     html = render_dashboard_html(conn, 2026, 1)
     assert "This week's recommendations" not in html
+
+
+def test_render_dashboard_html_shows_recommendation_cards_and_logos(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\nBengals,Ravens\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "pick-card recommended" in html
+    assert "espncdn.com" in html  # a known team (Jaguars) should get a logo URL
+    assert "Backup option 1" in html
+
+
+def test_render_dashboard_html_unknown_team_has_no_logo_but_still_renders(conn):
+    importer.import_schedule(conn, 2026, 1, "TeamA,TeamB\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "TeamA" in html
+    assert "TeamB" in html
+
+
+def test_render_dashboard_html_chalk_badge_for_high_ownership_top_pick(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    csv_text = ",Week 1\nEntry A,Jaguars\nEntry B,Jaguars\nEntry C,Jaguars\n"
+    rows = parse_pool_sheet_csv(csv_text)
+    ownership = pick_ownership(rows, "Week 1")
+    html = render_dashboard_html(conn, 2026, 1, ownership=ownership)
+    assert "Heavy chalk" in html
+
+
+def test_render_dashboard_html_includes_full_season_path_when_future_weeks_exist(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    importer.import_schedule(conn, 2026, 2, "Bengals,Ravens\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Reference full-season path" in html

@@ -5,41 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loser Pool 2026 — Week 1</title>
 <style>
-:root { color-scheme: light dark; }
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7; --card: #ffffff; --border: #e4e6eb; --text: #14161a;
+  --muted: #6b7280; --accent: #d9662a; --accent-bg: #fdf1e9; --accent-border: #f0b487;
+  --navy: #0f1f3d; --good: #1f8a4c; --warn: #b8860b; --bad: #c0392b;
+  --tile-bg: #f8f9fb; --banner-bg: #eaf1fd; --banner-border: #b9d3f7; --banner-text: #1a4c96;
+  --pill-chalk-bg: #fdeee2; --pill-chalk-text: #b5551a;
+  --pill-leverage-bg: #e9f7ee; --pill-leverage-text: #1f8a4c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216; --card: #1a1d24; --border: #2a2d35; --text: #e8e8ea;
+    --muted: #9aa0ab; --accent: #f0924f; --accent-bg: #2a2116; --accent-border: #7a4a20;
+    --navy: #dbe6ff; --tile-bg: #181b21; --banner-bg: #172033; --banner-border: #2c4770;
+    --banner-text: #a9c6f5; --pill-chalk-bg: #2a2116; --pill-chalk-text: #e2a06a;
+    --pill-leverage-bg: #16281d; --pill-leverage-text: #6fcf97;
+  }
+}
+* { box-sizing: border-box; }
 body {
-  margin: 0; padding: 24px 16px; background: #0f1115; color: #e8e8ea;
+  margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-@media (prefers-color-scheme: light) {
-  body { background: #f7f7f8; color: #1a1a1a; }
-  table { background: #fff; }
-  th { background: #eee; }
-  tr:nth-child(even) { background: #f2f2f2; }
-  .card { background: #fff; border-color: #ddd; }
+.wrap { max-width: 1000px; margin: 0 auto; }
+.header-row { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px 0; color: var(--navy); }
+.subtitle { color: var(--muted); margin-bottom: 1.25em; font-size: 0.88rem; }
+.badge {
+  display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem;
+  font-weight: 600; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border);
 }
-h1 { font-size: 1.5rem; margin-bottom: 0.1em; }
-.subtitle { opacity: 0.7; margin-bottom: 1.5em; font-size: 0.9rem; }
+.banner {
+  background: var(--banner-bg); border: 1px solid var(--banner-border); color: var(--banner-text);
+  border-radius: 8px; padding: 10px 16px; font-size: 0.9rem; margin-bottom: 20px;
+}
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.tile { background: var(--tile-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .value { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+.tile .label { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .card {
-  max-width: 900px; margin: 0 auto 24px auto; background: #1a1d24;
-  border: 1px solid #2a2d35; border-radius: 10px; padding: 16px 20px;
-  overflow-x: auto;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 24px; overflow-x: auto;
 }
-h2 { font-size: 1.1rem; margin-top: 0; }
-table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(128,128,128,0.25); }
-th { background: rgba(128,128,128,0.15); }
-tr:nth-child(even) { background: rgba(128,128,128,0.06); }
+h2 { font-size: 1.05rem; margin: 0 0 12px 0; color: var(--navy); }
+h3 { font-size: 0.95rem; margin: 18px 0 8px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+tr:last-child td { border-bottom: none; }
 .eliminated { opacity: 0.5; text-decoration: line-through; }
-.lives-2 { color: #4caf50; }
-.lives-1 { color: #ffb300; }
-.lives-0 { color: #e05252; }
-.wrap { max-width: 900px; margin: 0 auto; }
+.lives-2 { color: var(--good); font-weight: 600; }
+.lives-1 { color: var(--warn); font-weight: 600; }
+.lives-0 { color: var(--bad); font-weight: 600; }
+.team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.team img { width: 20px; height: 20px; object-fit: contain; }
+.pick-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.pick-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.pick-card.recommended { border-color: var(--accent-border); background: var(--accent-bg); }
+.pick-card .kicker { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+.pick-card.recommended .kicker { color: var(--accent); }
+.pick-card:not(.recommended) .kicker { color: var(--muted); }
+.pick-card .matchup { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+.pick-card .matchup img { width: 26px; height: 26px; object-fit: contain; }
+.pick-card .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); padding: 2px 0; }
+.pick-card .stat-row b { color: var(--text); }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; margin-top: 8px; }
+.pill.chalk { background: var(--pill-chalk-bg); color: var(--pill-chalk-text); }
+.pill.leverage { background: var(--pill-leverage-bg); color: var(--pill-leverage-text); }
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>Loser Pool 2026 — Week 1</h1>
-<div class="subtitle">Last updated 2026-09-11 00:12 UTC</div>
+<div class="header-row">
+  <div>
+    <h1>Loser Pool 2026</h1>
+    <div class="subtitle">Week 1 · last updated 2026-09-11 00:19 UTC</div>
+  </div>
+  <span class="badge">Week 1</span>
+</div>
+
+<div class="banner">Dashboard auto-refreshes from The Odds API and the pool's Google Sheet a few times on game days.</div>
+
+<div class="tiles"><div class='tile'><div class='value'>1</div><div class='label'>Entries alive</div></div><div class='tile'><div class='value'>0</div><div class='label'>Eliminated</div></div><div class='tile'><div class='value'>1</div><div class='label'>Total entries</div></div><div class='tile'><div class='value'>—</div><div class='label'>Most-picked team</div></div></div>
 
 <div class="card">
   <h2>Standings</h2>
@@ -50,7 +98,7 @@ tr:nth-child(even) { background: rgba(128,128,128,0.06); }
 </div>
 
 
-<div class='card'><h2>This week's recommendations</h2><h3>Sean M</h3><p>No available teams with a game this week.</p></div>
+<div class='card'><h2>This week's recommendations</h2><h3>Sean M — 2 live(s)</h3><p style='color:var(--muted)'>No available teams with a game this week.</p></div>
 </div>
 </body>
 </html>
