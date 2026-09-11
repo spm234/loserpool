@@ -1,0 +1,77 @@
+name: Refresh Loser Pool dashboard
+
+on:
+  schedule:
+    # Every 3 hours on Thursday(4), Sunday(0) and Monday(1) UTC — the pool's
+    # actual game days. Tune freely; GitHub's schedule uses UTC regardless
+    # of where you are. Manual runs (below) always work too.
+    - cron: "0 */3 * * 4,0,1"
+  workflow_dispatch: {}
+
+# Needed so the job can commit the refreshed DB + dashboard back to the repo.
+permissions:
+  contents: write
+
+concurrency:
+  group: loserpool-refresh
+  cancel-in-progress: false
+
+env:
+  # Override these by setting repo Variables (Settings > Secrets and
+  # variables > Actions > Variables) of the same name — these are just
+  # fallback defaults so the workflow runs out of the box.
+  SEASON_YEAR: ${{ vars.SEASON_YEAR || '2026' }}
+  SEASON_WEEK1_DATE: ${{ vars.SEASON_WEEK1_DATE || '2026-09-08' }}
+  POOL_SHEET_ID: ${{ vars.POOL_SHEET_ID || '1-T6IVmUWv8N_TFzWjyUlHgYCUhzU70Q5xNM-I49FyLc' }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Initialize DB (first run only)
+        run: |
+          if [ ! -f loser_pool.db ]; then
+            python -m loser_pool.cli init-db
+            python -m loser_pool.cli config-set --season-week1-date "$SEASON_WEEK1_DATE"
+          fi
+
+      - name: Compute current week
+        id: week
+        run: echo "week=$(python -m loser_pool.cli current-week)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync schedule/spreads/results from The Odds API
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+        run: |
+          if [ -z "$THE_ODDS_API_KEY" ]; then
+            echo "::warning::THE_ODDS_API_KEY secret not set — skipping odds/results sync. Add it under Settings > Secrets and variables > Actions."
+          else
+            python -m loser_pool.cli sync-week --season "$SEASON_YEAR" --week "${{ steps.week.outputs.week }}" --also-settle-previous
+          fi
+
+      - name: Fetch pool sheet (public CSV export, no auth needed)
+        run: curl -sL "https://docs.google.com/spreadsheets/d/${POOL_SHEET_ID}/export?format=csv" -o sheet.csv
+
+      - name: Sync picks from the sheet
+        run: python -m loser_pool.cli import-sheet-picks --season "$SEASON_YEAR" --file sheet.csv
+
+      - name: Render dashboard
+        run: |
+          python -m loser_pool.cli export-html --season "$SEASON_YEAR" --week "${{ steps.week.outputs.week }}" \
+            --sheet-file sheet.csv --out docs/index.html
+
+      - name: Commit + push refreshed state
+        run: |
+          git config user.name "loserpool-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add loser_pool.db docs/index.html
+          git diff --cached --quiet && echo "Nothing changed." || git commit -m "Automated refresh: week ${{ steps.week.outputs.week }}"
+          git push
