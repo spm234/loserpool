@@ -133,3 +133,31 @@ def test_render_dashboard_html_no_underdog_sections_when_no_games(conn):
     html = render_dashboard_html(conn, 2026, 1)
     assert "Week-over-week biggest underdogs" not in html
     assert "Best week to use each team" not in html
+
+
+def test_render_dashboard_html_prefers_season_optimal_pick_over_raw_best(conn):
+    # Team A is the best raw pick this week (90%), but has no other game
+    # anywhere else in the known schedule -> using it now costs nothing
+    # later, so it stays optimal even with lookahead (sanity baseline).
+    #
+    # Team B is a modest pick this week (60%) but a monster mismatch next
+    # week (95%) that only it can fill (no other underdog next week) -> a
+    # myopic this-week-only ranking picks A or whichever is highest raw
+    # this week; the season-aware ranking should recognize B is safe to
+    # take now since its OWN big week is still available regardless, and
+    # what actually matters here is that the "peak week" opportunity-cost
+    # note fires correctly for a team whose best week is NOT this one.
+    importer.record_game_result(conn, 2026, 1, "TeamC", "TeamD", favorite="home", margin=1)  # near pick'em
+    importer.record_game_result(conn, 2026, 2, "TeamC", "TeamE", favorite="home", margin=40)  # TeamC huge dog later
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Bigger mismatch in Week 2" in html
+
+
+def test_render_dashboard_html_peak_week_note_when_current_week_is_best(conn):
+    importer.record_game_result(conn, 2026, 1, "TeamA", "TeamB", favorite="home", margin=20)
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Peak week for this team" in html

@@ -28,6 +28,7 @@ from .team_outlook import (
     best_week_per_team,
     known_weeks,
     season_to_date_team_usage,
+    team_week_matrix,
     weekly_biggest_underdogs,
 )
 from .teams import logo_url
@@ -41,6 +42,8 @@ STYLE = """
   --tile-bg: #f8f9fb;
   --pill-chalk-bg: #fdeee2; --pill-chalk-text: #b5551a;
   --pill-leverage-bg: #e9f7ee; --pill-leverage-text: #1f8a4c;
+  --pill-peak-bg: #e9f7ee; --pill-peak-text: #1f8a4c;
+  --pill-caution-bg: #fdf6e3; --pill-caution-text: #96700a;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -49,6 +52,8 @@ STYLE = """
     --navy: #dbe6ff; --tile-bg: #181b21;
     --pill-chalk-bg: #2a2116; --pill-chalk-text: #e2a06a;
     --pill-leverage-bg: #16281d; --pill-leverage-text: #6fcf97;
+    --pill-peak-bg: #16281d; --pill-peak-text: #6fcf97;
+    --pill-caution-bg: #2b2410; --pill-caution-text: #e0bd5a;
   }
 }
 * { box-sizing: border-box; }
@@ -98,6 +103,9 @@ tr:last-child td { border-bottom: none; }
 .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; margin-top: 8px; }
 .pill.chalk { background: var(--pill-chalk-bg); color: var(--pill-chalk-text); }
 .pill.leverage { background: var(--pill-leverage-bg); color: var(--pill-leverage-text); }
+.pill.peak { background: var(--pill-peak-bg); color: var(--pill-peak-text); }
+.pill.caution { background: var(--pill-caution-bg); color: var(--pill-caution-text); }
+.pick-card .pill { display: block; margin-top: 6px; white-space: normal; }
 .trajectory { color: var(--muted); font-size: 0.82rem; white-space: normal; }
 """
 
@@ -116,7 +124,7 @@ def _team_html(name: str) -> str:
     return f"<span class='team'>{img}{_esc(name)}</span>"
 
 
-def _note_badge(is_top_pick: bool, ownership_frac: float, p_lose: float) -> str:
+def _ownership_note(is_top_pick: bool, ownership_frac: float, p_lose: float) -> str:
     if is_top_pick and ownership_frac >= 0.30:
         return "<span class='pill chalk'>Heavy chalk</span>"
     if ownership_frac <= 0.10 and p_lose >= 0.65:
@@ -124,12 +132,39 @@ def _note_badge(is_top_pick: bool, ownership_frac: float, p_lose: float) -> str:
     return ""
 
 
-def _pick_card(rank: int, rec: WeeklyRecommendation, ownership_by_team: Dict[str, PickOwnership]) -> str:
+def _peak_week_note(team: str, p_lose_now: float, week_number: int, matrix: Dict[str, Dict[int, object]]) -> str:
+    """Flags the opportunity cost of using `team` THIS week: if some other
+    known week is meaningfully better for them, using them now means
+    giving up that bigger future mismatch (picking a team locks it out for
+    the rest of the season). If this week already IS (or ties) their best
+    known week, says so instead — confirms good timing rather than warning
+    against it.
+    """
+    weeks = matrix.get(team)
+    if not weeks:
+        return ""
+    best = max(weeks.values(), key=lambda o: o.p_lose)
+    if best.week_number == week_number or best.p_lose - p_lose_now < 0.08:
+        return "<span class='pill peak'>Peak week for this team</span>"
+    return (
+        f"<span class='pill caution'>Bigger mismatch in Week {best.week_number} "
+        f"({best.p_lose:.0%}) — consider saving</span>"
+    )
+
+
+def _pick_card(
+    rank: int,
+    rec: WeeklyRecommendation,
+    week_number: int,
+    ownership_by_team: Dict[str, PickOwnership],
+    matrix: Dict[str, Dict[int, object]],
+) -> str:
     kicker = "Recommended" if rank == 0 else f"Backup option {rank}"
     loc = "home" if rec.is_home else "away"
     own = ownership_by_team.get(rec.team)
     public_pct = f"{own.fraction_of_submitted:.1%}" if own else "—"
-    badge = _note_badge(rank == 0, own.fraction_of_submitted if own else 0.0, rec.p_lose)
+    ownership_note = _ownership_note(rank == 0, own.fraction_of_submitted if own else 0.0, rec.p_lose)
+    timing_note = _peak_week_note(rec.team, rec.p_lose, week_number, matrix)
     survive_row = ""
     if rec.p_survive_season_if_picked is not None:
         survive_row = (
@@ -143,7 +178,8 @@ def _pick_card(rank: int, rec: WeeklyRecommendation, ownership_by_team: Dict[str
   <div class="stat-row"><span>Loses</span><b>{rec.p_lose:.1%}</b></div>
   <div class="stat-row"><span>Public pick %</span><b>{public_pct}</b></div>
   {survive_row}
-  {badge}
+  {timing_note}
+  {ownership_note}
 </div>"""
 
 
@@ -159,16 +195,24 @@ def _render_recommendations(
     if not my_entries:
         return ""
 
+    all_known_weeks = known_weeks(conn, season_year)
+    matrix = team_week_matrix(conn, season_year, all_known_weeks, cfg=cfg)
+    sim_horizon_weeks = [w for w in all_known_weeks if w >= week_number] or [week_number]
+
     sections = []
     for e in my_entries:
-        recs = recommend_week(conn, season_year, week_number, e["id"])
+        # remaining_week_numbers makes this actually run the season-survival
+        # simulation and re-rank by it, instead of just this week's raw
+        # loss probability — without it, a team having a much better
+        # matchup later never factors into which pick tops the list.
+        recs = recommend_week(conn, season_year, week_number, e["id"], remaining_week_numbers=sim_horizon_weeks)
         section = f"<h3>{_esc(e['display_name'])} — {e['lives_remaining']} live(s)</h3>"
         if not recs:
             section += "<p style='color:var(--muted)'>No available teams with a game this week.</p>"
             sections.append(section)
             continue
 
-        cards = "".join(_pick_card(i, r, ownership_by_team) for i, r in enumerate(recs[:3]))
+        cards = "".join(_pick_card(i, r, week_number, ownership_by_team, matrix) for i, r in enumerate(recs[:3]))
         section += f"<div class='pick-cards'>{cards}</div>"
 
         if len(recs) > 3:
@@ -233,8 +277,6 @@ def _render_weekly_underdogs(conn: sqlite3.Connection, season_year: int, cfg: Lo
 
 
 def _render_team_outlook(conn: sqlite3.Connection, season_year: int, cfg: LoserPoolConfig) -> str:
-    from .team_outlook import team_week_matrix
-
     weeks = known_weeks(conn, season_year)
     if not weeks:
         return ""

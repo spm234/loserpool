@@ -126,8 +126,19 @@ Run tests with `python -m pytest`.
   product of each picked team's weekly loss probability, one team per
   week, no repeats); `recommend` is the real weekly call, accounting for
   lives remaining and already-used teams, using Monte Carlo simulation
-  (`loser_pool/simulation.py`) to break close calls by estimated
-  season-survival probability rather than just this week's raw number.
+  (`loser_pool/simulation.py`) to re-rank by estimated season-survival
+  probability rather than just this week's raw number — **this is what
+  makes the top pick account for opportunity cost**: a team with a merely
+  decent number now but a much bigger mismatch later can outrank a team
+  that's the single highest number this week but goes nowhere better
+  afterward, since burning the second team now costs nothing while
+  burning the first one forfeits its better week. The dashboard's pick
+  cards surface this directly with a "Peak week for this team" /
+  "Bigger mismatch in Week N — consider saving" note per candidate, based
+  on the same team-outlook data as the "best week to use each team" view.
+  This only works as well as the schedule this tool actually knows about
+  (`team_outlook.known_weeks`) — see "Why Elo..." below for extending
+  that beyond what `sync-week` has discovered on its own.
 - **Field ownership**: `sheet-ownership` / the dashboard's field-ownership
   table show current pick concentration per team, straight from the
   sheet — useful for the split-pot rule (a team fewer people share is
