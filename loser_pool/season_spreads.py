@@ -88,6 +88,7 @@ class ImportReport:
     written: int = 0
     skipped_bye: int = 0
     skipped_market_data_present: int = 0
+    skipped_orientation_conflict: int = 0
 
 
 def import_season_spread_grid(conn: sqlite3.Connection, season_year: int, text: str) -> ImportReport:
@@ -119,6 +120,21 @@ def import_season_spread_grid(conn: sqlite3.Connection, season_year: int, text: 
             favorite, margin = None, 0.0
 
         week_id = db.get_or_create_week(conn, season_year, g.week_number)
+
+        # The grid gives each game's home/away from BOTH teams' own rows.
+        # If they disagree (a transcription slip in the source, or in this
+        # game's own row vs. the opponent's row elsewhere in the grid) and
+        # a game between these same two teams already exists this week
+        # under the OPPOSITE orientation, that's the same real game — skip
+        # rather than create a second, conflicting game record for it.
+        conflicting = conn.execute(
+            "SELECT id FROM lp_game WHERE week_id = ? AND away_team = ? AND home_team = ?",
+            (week_id, home_team, away_team),
+        ).fetchone()
+        if conflicting:
+            report.skipped_orientation_conflict += 1
+            continue
+
         game_id = db.get_or_create_game(conn, week_id, away_team, home_team)
         cur = conn.execute(
             """

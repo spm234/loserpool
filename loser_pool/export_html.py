@@ -31,7 +31,8 @@ from .team_outlook import (
     team_week_matrix,
     weekly_biggest_underdogs,
 )
-from .teams import logo_url
+from .team_page import all_teams_with_pages, current_elo_rating, team_pickers, team_record, team_schedule
+from .teams import abbr_for, logo_url
 
 STYLE = """
 :root {
@@ -88,7 +89,8 @@ tr:last-child td { border-bottom: none; }
 .lives-2 { color: var(--good); font-weight: 600; }
 .lives-1 { color: var(--warn); font-weight: 600; }
 .lives-0 { color: var(--bad); font-weight: 600; }
-.team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: inherit; text-decoration: none; }
+a.team:hover { text-decoration: underline; }
 .team img { width: 20px; height: 20px; object-fit: contain; }
 .pick-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 8px; }
 .pick-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -107,6 +109,21 @@ tr:last-child td { border-bottom: none; }
 .pill.caution { background: var(--pill-caution-bg); color: var(--pill-caution-text); }
 .pick-card .pill { display: block; margin-top: 6px; white-space: normal; }
 .trajectory { color: var(--muted); font-size: 0.82rem; white-space: normal; }
+.team-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.team-header img { width: 56px; height: 56px; object-fit: contain; }
+.team-header h1 { margin: 0; }
+.back-link { display: inline-block; margin-bottom: 16px; color: var(--muted); text-decoration: none; font-size: 0.85rem; }
+.back-link:hover { text-decoration: underline; }
+.plose-good { color: var(--good); font-weight: 700; }
+.plose-bad { color: var(--bad); font-weight: 700; }
+.plose-neutral { color: var(--warn); font-weight: 700; }
+.outcome-win { color: var(--bad); font-weight: 600; }
+.outcome-loss { color: var(--good); font-weight: 600; }
+.outcome-tie { color: var(--warn); font-weight: 600; }
+.teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.teams-grid a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+.teams-grid a:hover { border-color: var(--accent-border); }
+.teams-grid img { width: 22px; height: 22px; object-fit: contain; }
 """
 
 
@@ -118,10 +135,20 @@ def _lives_class(lives: int) -> str:
     return f"lives-{max(0, min(2, lives))}"
 
 
-def _team_html(name: str) -> str:
+def _team_html(name: str, link_base: str = "teams/") -> str:
+    """`link_base` is the relative path prefix to this page's own
+    per-team pages: "teams/" from the main dashboard (docs/index.html),
+    "" from inside a team page itself (docs/teams/*.html, same directory).
+    A team with no known abbreviation (typo, fictional test team) renders
+    as plain text — nothing to link to.
+    """
     url = logo_url(name)
     img = f"<img src='{_esc(url)}' onerror=\"this.remove()\">" if url else ""
-    return f"<span class='team'>{img}{_esc(name)}</span>"
+    abbr = abbr_for(name)
+    label = f"{img}{_esc(name)}"
+    if abbr:
+        return f"<a class='team' href='{link_base}{abbr}.html'>{label}</a>"
+    return f"<span class='team'>{label}</span>"
 
 
 def _ownership_note(is_top_pick: bool, ownership_frac: float, p_lose: float) -> str:
@@ -378,7 +405,10 @@ def render_dashboard_html(
     <h1>Loser Pool {season_year}</h1>
     <div class="subtitle">Week {week_number} · last updated {generated_at.strftime('%Y-%m-%d %H:%M UTC')}</div>
   </div>
-  <span class="badge">Week {week_number}</span>
+  <div>
+    <a class="back-link" href="teams/index.html" style="margin:0 10px 0 0">All Teams &rarr;</a>
+    <span class="badge">Week {week_number}</span>
+  </div>
 </div>
 
 <div class="tiles">{tiles_html}</div>
@@ -401,3 +431,123 @@ def render_dashboard_html(
 </body>
 </html>
 """
+
+
+def _p_lose_class(p_lose: float) -> str:
+    if p_lose >= 0.60:
+        return "plose-good"
+    if p_lose <= 0.40:
+        return "plose-bad"
+    return "plose-neutral"
+
+
+def render_team_page_html(
+    conn: sqlite3.Connection,
+    season_year: int,
+    team: str,
+    *,
+    cfg: Optional[LoserPoolConfig] = None,
+    generated_at: Optional[datetime] = None,
+) -> str:
+    """One team's page: full known schedule with per-game loss probability
+    (color-coded — green means a good week to pick them, red means they're
+    heavily favored and risky), who's picked them and how it went, and
+    their actual on-field record so far.
+    """
+    cfg = cfg or LoserPoolConfig.load(conn)
+    generated_at = generated_at or datetime.now(timezone.utc)
+
+    schedule = team_schedule(conn, season_year, team, cfg)
+    record = team_record(schedule)
+    pickers = team_pickers(conn, season_year, team)
+    current_week = max((r.week_number for r in schedule if r.outcome is None), default=1)
+    rating = current_elo_rating(conn, season_year, team, current_week, cfg)
+    logo = logo_url(team)
+    logo_img = f"<img src='{_esc(logo)}'>" if logo else ""
+
+    schedule_rows = []
+    for r in schedule:
+        loc = "home" if r.is_home else "away"
+        if r.outcome is None:
+            outcome_html = "<span style='color:var(--muted)'>—</span>"
+            score_html = "—"
+        else:
+            outcome_html = f"<span class='outcome-{r.outcome}'>{r.outcome.upper()[0]}</span>"
+            score_html = f"{r.away_score}–{r.home_score}" if r.home_score is not None else "—"
+        p_class = _p_lose_class(r.p_lose)
+        schedule_rows.append(
+            f"<tr><td>Week {r.week_number}</td><td>{loc} vs {_team_html(r.opponent, link_base='')}</td>"
+            f"<td class='{p_class}'>{r.p_lose:.1%}</td><td>{outcome_html}</td><td>{score_html}</td></tr>"
+        )
+    schedule_html = (
+        "<table><tr><th>Week</th><th>Matchup</th><th>Loses</th><th>Result</th><th>Score</th></tr>"
+        f"{''.join(schedule_rows)}</table>"
+        if schedule_rows
+        else "<p style='color:var(--muted)'>No games on the schedule yet.</p>"
+    )
+
+    picker_rows = "".join(
+        f"<tr><td>{_esc(p.entry_name)}</td><td>Week {p.week_number}</td>"
+        f"<td class=\"{'outcome-loss' if p.result == 'survived' else 'outcome-win' if p.result == 'busted' else ''}\">"
+        f"{_esc(p.result)}</td></tr>"
+        for p in pickers
+    )
+    pickers_html = (
+        f"<table><tr><th>Entry</th><th>Week</th><th>Result</th></tr>{picker_rows}</table>"
+        if pickers
+        else "<p style='color:var(--muted)'>Nobody's picked them yet.</p>"
+    )
+
+    return f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{_esc(team)} — Loser Pool {season_year}</title>
+<style>{STYLE}</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back-link" href="../index.html">&larr; Back to dashboard</a>
+<div class="team-header">{logo_img}<h1>{_esc(team)}</h1></div>
+<div class="subtitle">Record {record} · Elo rating {rating:.0f} · picked by {len(pickers)} entr{'y' if len(pickers) == 1 else 'ies'} this season · last updated {generated_at.strftime('%Y-%m-%d %H:%M UTC')}</div>
+
+<div class="card">
+  <h2>Schedule <span class="hint">— loss probability color-coded: green = good pick target, red = heavily favored</span></h2>
+  {schedule_html}
+</div>
+
+<div class="card">
+  <h2>Picked by</h2>
+  {pickers_html}
+</div>
+</div>
+</body>
+</html>
+"""
+
+
+def render_teams_index_html(conn: sqlite3.Connection, season_year: int) -> str:
+    """A simple grid linking to every team's page."""
+    teams = all_teams_with_pages(conn, season_year)
+    cards = "".join(_team_html(t, link_base="") for t in teams if abbr_for(t))
+    return f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All Teams — Loser Pool {season_year}</title>
+<style>{STYLE}</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back-link" href="../index.html">&larr; Back to dashboard</a>
+<h1>All Teams</h1>
+<div class="card">
+  <div class="teams-grid">{cards}</div>
+</div>
+</div>
+</body>
+</html>
+"""
+

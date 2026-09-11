@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rams — Loser Pool 2026</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7; --card: #ffffff; --border: #e4e6eb; --text: #14161a;
+  --muted: #6b7280; --accent: #d9662a; --accent-bg: #fdf1e9; --accent-border: #f0b487;
+  --navy: #0f1f3d; --good: #1f8a4c; --warn: #b8860b; --bad: #c0392b;
+  --tile-bg: #f8f9fb;
+  --pill-chalk-bg: #fdeee2; --pill-chalk-text: #b5551a;
+  --pill-leverage-bg: #e9f7ee; --pill-leverage-text: #1f8a4c;
+  --pill-peak-bg: #e9f7ee; --pill-peak-text: #1f8a4c;
+  --pill-caution-bg: #fdf6e3; --pill-caution-text: #96700a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216; --card: #1a1d24; --border: #2a2d35; --text: #e8e8ea;
+    --muted: #9aa0ab; --accent: #f0924f; --accent-bg: #2a2116; --accent-border: #7a4a20;
+    --navy: #dbe6ff; --tile-bg: #181b21;
+    --pill-chalk-bg: #2a2116; --pill-chalk-text: #e2a06a;
+    --pill-leverage-bg: #16281d; --pill-leverage-text: #6fcf97;
+    --pill-peak-bg: #16281d; --pill-peak-text: #6fcf97;
+    --pill-caution-bg: #2b2410; --pill-caution-text: #e0bd5a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.wrap { max-width: 1000px; margin: 0 auto; }
+.header-row { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px 0; color: var(--navy); }
+.subtitle { color: var(--muted); margin-bottom: 1.25em; font-size: 0.88rem; }
+.badge {
+  display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem;
+  font-weight: 600; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border);
+}
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.tile { background: var(--tile-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .value { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+.tile .label { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 24px; overflow-x: auto;
+}
+h2 { font-size: 1.05rem; margin: 0 0 12px 0; color: var(--navy); }
+h2 .hint { font-weight: 400; color: var(--muted); font-size: 0.78rem; text-transform: none; letter-spacing: 0; }
+h3 { font-size: 0.95rem; margin: 18px 0 8px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+tr:last-child td { border-bottom: none; }
+.eliminated { opacity: 0.5; text-decoration: line-through; }
+.lives-2 { color: var(--good); font-weight: 600; }
+.lives-1 { color: var(--warn); font-weight: 600; }
+.lives-0 { color: var(--bad); font-weight: 600; }
+.team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: inherit; text-decoration: none; }
+a.team:hover { text-decoration: underline; }
+.team img { width: 20px; height: 20px; object-fit: contain; }
+.pick-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.pick-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.pick-card.recommended { border-color: var(--accent-border); background: var(--accent-bg); }
+.pick-card .kicker { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+.pick-card.recommended .kicker { color: var(--accent); }
+.pick-card:not(.recommended) .kicker { color: var(--muted); }
+.pick-card .matchup { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
+.pick-card .matchup img { width: 26px; height: 26px; object-fit: contain; }
+.pick-card .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); padding: 2px 0; }
+.pick-card .stat-row b { color: var(--text); }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; margin-top: 8px; }
+.pill.chalk { background: var(--pill-chalk-bg); color: var(--pill-chalk-text); }
+.pill.leverage { background: var(--pill-leverage-bg); color: var(--pill-leverage-text); }
+.pill.peak { background: var(--pill-peak-bg); color: var(--pill-peak-text); }
+.pill.caution { background: var(--pill-caution-bg); color: var(--pill-caution-text); }
+.pick-card .pill { display: block; margin-top: 6px; white-space: normal; }
+.trajectory { color: var(--muted); font-size: 0.82rem; white-space: normal; }
+.team-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.team-header img { width: 56px; height: 56px; object-fit: contain; }
+.team-header h1 { margin: 0; }
+.back-link { display: inline-block; margin-bottom: 16px; color: var(--muted); text-decoration: none; font-size: 0.85rem; }
+.back-link:hover { text-decoration: underline; }
+.plose-good { color: var(--good); font-weight: 700; }
+.plose-bad { color: var(--bad); font-weight: 700; }
+.plose-neutral { color: var(--warn); font-weight: 700; }
+.outcome-win { color: var(--bad); font-weight: 600; }
+.outcome-loss { color: var(--good); font-weight: 600; }
+.outcome-tie { color: var(--warn); font-weight: 600; }
+.teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.teams-grid a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+.teams-grid a:hover { border-color: var(--accent-border); }
+.teams-grid img { width: 22px; height: 22px; object-fit: contain; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back-link" href="../index.html">&larr; Back to dashboard</a>
+<div class="team-header"><img src='https://a.espncdn.com/i/teamlogos/nfl/500/lar.png'><h1>Rams</h1></div>
+<div class="subtitle">Record 0-0 · Elo rating 1500 · picked by 0 entries this season · last updated 2026-09-11 12:39 UTC</div>
+
+<div class="card">
+  <h2>Schedule <span class="hint">— loss probability color-coded: green = good pick target, red = heavily favored</span></h2>
+  <table><tr><th>Week</th><th>Matchup</th><th>Loses</th><th>Result</th><th>Score</th></tr><tr><td>Week 1</td><td>home vs <a class='team' href='sf.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/sf.png' onerror="this.remove()">49ers</a></td><td class='plose-bad'>32.0%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 2</td><td>home vs <a class='team' href='nyg.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png' onerror="this.remove()">Giants</a></td><td class='plose-bad'>27.0%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 3</td><td>away vs <a class='team' href='den.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/den.png' onerror="this.remove()">Broncos</a></td><td class='plose-neutral'>41.4%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 4</td><td>away vs <a class='team' href='phi.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/phi.png' onerror="this.remove()">Eagles</a></td><td class='plose-neutral'>45.7%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 5</td><td>home vs <a class='team' href='buf.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/buf.png' onerror="this.remove()">Bills</a></td><td class='plose-neutral'>41.4%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 6</td><td>home vs <a class='team' href='ari.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/ari.png' onerror="this.remove()">Cardinals</a></td><td class='plose-bad'>16.5%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 7</td><td>away vs <a class='team' href='lv.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/lv.png' onerror="this.remove()">Raiders</a></td><td class='plose-bad'>27.0%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 8</td><td>home vs <a class='team' href='lac.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/lac.png' onerror="this.remove()">Chargers</a></td><td class='plose-bad'>37.3%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 9</td><td>away vs <a class='team' href='wsh.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png' onerror="this.remove()">Commanders</a></td><td class='plose-bad'>37.3%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 10</td><td>away vs <a class='team' href='ari.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/ari.png' onerror="this.remove()">Cardinals</a></td><td class='plose-bad'>22.4%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 12</td><td>home vs <a class='team' href='gb.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/gb.png' onerror="this.remove()">Packers</a></td><td class='plose-bad'>34.6%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 13</td><td>home vs <a class='team' href='kc.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/kc.png' onerror="this.remove()">Chiefs</a></td><td class='plose-bad'>35.9%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 14</td><td>away vs <a class='team' href='sf.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/sf.png' onerror="this.remove()">49ers</a></td><td class='plose-neutral'>42.8%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 15</td><td>home vs <a class='team' href='dal.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/dal.png' onerror="this.remove()">Cowboys</a></td><td class='plose-bad'>29.4%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 16</td><td>away vs <a class='team' href='sea.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/sea.png' onerror="this.remove()">Seahawks</a></td><td class='plose-neutral'>45.7%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 17</td><td>away vs <a class='team' href='tb.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/tb.png' onerror="this.remove()">Buccaneers</a></td><td class='plose-bad'>33.3%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr><tr><td>Week 18</td><td>home vs <a class='team' href='sea.html'><img src='https://a.espncdn.com/i/teamlogos/nfl/500/sea.png' onerror="this.remove()">Seahawks</a></td><td class='plose-neutral'>41.4%</td><td><span style='color:var(--muted)'>—</span></td><td>—</td></tr></table>
+</div>
+
+<div class="card">
+  <h2>Picked by</h2>
+  <p style='color:var(--muted)'>Nobody's picked them yet.</p>
+</div>
+</div>
+</body>
+</html>

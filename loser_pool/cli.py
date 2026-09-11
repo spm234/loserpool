@@ -106,8 +106,9 @@ def cmd_import_season_spreads(args):
     text = _read_text(args.file)
     report = import_season_spread_grid(conn, args.season, text)
     print(
-        f"Applied {report.written} grid cells, skipped {report.skipped_bye} bye week(s) "
-        f"and {report.skipped_market_data_present} already backed by real market data."
+        f"Applied {report.written} grid cells, skipped {report.skipped_bye} bye week(s), "
+        f"{report.skipped_market_data_present} already backed by real market data, and "
+        f"{report.skipped_orientation_conflict} home/away conflicts with the opposing team's row."
     )
     conn.close()
 
@@ -340,6 +341,30 @@ def cmd_export_html(args):
     conn.close()
 
 
+def cmd_export_team_pages(args):
+    from .export_html import render_team_page_html, render_teams_index_html
+    from .team_page import all_teams_with_pages
+    from .teams import abbr_for
+
+    conn = db.connect(args.db)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    teams = all_teams_with_pages(conn, args.season)
+    written = 0
+    for team in teams:
+        abbr = abbr_for(team)
+        if not abbr:
+            continue  # no logo/abbreviation to file it under — skip rather than guess a slug
+        html = render_team_page_html(conn, args.season, team)
+        (out_dir / f"{abbr}.html").write_text(html)
+        written += 1
+
+    (out_dir / "index.html").write_text(render_teams_index_html(conn, args.season))
+    print(f"Wrote {written} team page(s) + index to {out_dir}")
+    conn.close()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="loser_pool", description="Loser Pool strategy console")
     p.add_argument("--db", default=str(db.DEFAULT_DB_PATH), help="Path to the SQLite database")
@@ -534,6 +559,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--sheet-file", default=None, help="A pre-fetched sheet CSV, to include field ownership %%")
     sp.add_argument("--period", default=None, help="Sheet column label if it doesn't match 'Week N' (e.g. playoffs)")
     sp.set_defaults(func=cmd_export_html)
+
+    sp = sub.add_parser(
+        "export-team-pages",
+        help="Render one page per team (schedule, loss probabilities, who's picked them) plus an index",
+    )
+    sp.add_argument("--season", type=int, required=True)
+    sp.add_argument("--out-dir", default="docs/teams")
+    sp.set_defaults(func=cmd_export_team_pages)
 
     return p
 

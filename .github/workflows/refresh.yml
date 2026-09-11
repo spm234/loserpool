@@ -69,11 +69,14 @@ jobs:
           python -m loser_pool.cli export-html --season "$SEASON_YEAR" --week "${{ steps.week.outputs.week }}" \
             --sheet-file sheet.csv --out docs/index.html
 
+      - name: Render team pages
+        run: python -m loser_pool.cli export-team-pages --season "$SEASON_YEAR" --out-dir docs/teams
+
       - name: Commit + push refreshed state
         run: |
           git config user.name "loserpool-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add loser_pool.db docs/index.html
+          git add loser_pool.db docs/index.html docs/teams
           git diff --cached --quiet && echo "Nothing changed." || git commit -m "Automated refresh: week ${{ steps.week.outputs.week }}"
           git push
 

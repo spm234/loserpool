@@ -117,3 +117,18 @@ def test_import_season_spread_grid_refreshes_its_own_earlier_projection(conn):
         (week_id,),
     ).fetchone()
     assert game["spread_margin"] == 9.0
+
+
+def test_import_season_spread_grid_skips_conflicting_home_away_orientation(conn):
+    # ARI's own row says away @ LAC (LAC home); a conflicting grid where
+    # LAC's row ALSO claims to be away (i.e. they disagree on who's home)
+    # should not create a second game record for the same week/matchup.
+    conflicting_grid = SAMPLE_GRID.replace("LAC\n-11.5\nvs ARI", "LAC\n-11.5\n@ ARI")
+    report = import_season_spread_grid(conn, 2026, conflicting_grid)
+    week_id = db.get_or_create_week(conn, 2026, 1)
+    games = conn.execute(
+        "SELECT * FROM lp_game WHERE week_id = ? AND (away_team = 'Cardinals' OR home_team = 'Cardinals')",
+        (week_id,),
+    ).fetchall()
+    assert len(games) == 1
+    assert report.skipped_orientation_conflict >= 1

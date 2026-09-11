@@ -103,6 +103,7 @@ python -m loser_pool.cli import-sheet-picks --season 2026 --file sheet.csv
 python -m loser_pool.cli status --season 2026
 python -m loser_pool.cli recommend --season 2026 --week 1 --entry "Sean M" --through-week 6
 python -m loser_pool.cli export-html --season 2026 --week 1 --sheet-file sheet.csv --out docs/index.html
+python -m loser_pool.cli export-team-pages --season 2026 --out-dir docs/teams
 ```
 
 Run tests with `python -m pytest`.
@@ -155,6 +156,16 @@ Run tests with `python -m pytest`.
   so far — there's no full 18-week schedule preloaded (see below), so
   early in the season these will only cover 1-2 weeks and fill in as the
   season goes.
+- **Per-team pages** (`export-team-pages`, `loser_pool/team_page.py`):
+  every team name on the dashboard links to its own page — full known
+  schedule with loss probability per game (green background = good pick
+  target/heavy underdog, red = heavily favored and risky, matching the
+  same thresholds as the rest of the tool), actual on-field record so
+  far, current Elo rating, and every entry that's picked them this season
+  with how it turned out. `docs/teams/index.html` (linked as "All Teams"
+  from the dashboard header) lists all 32. Same known-weeks limitation as
+  the outlook views above — a team's page only shows weeks this tool
+  actually has a schedule for.
 
 ## Why Elo, not a real power-rating service
 
