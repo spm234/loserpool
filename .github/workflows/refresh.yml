@@ -8,9 +8,10 @@ on:
     - cron: "0 */3 * * 4,0,1"
   workflow_dispatch: {}
 
-# Needed so the job can commit the refreshed DB + dashboard back to the repo.
 permissions:
-  contents: write
+  contents: write  # commit the refreshed DB back to the repo
+  pages: write     # publish the dashboard (Pages source: GitHub Actions)
+  id-token: write  # required by actions/deploy-pages
 
 concurrency:
   group: loserpool-refresh
@@ -75,3 +76,22 @@ jobs:
           git add loser_pool.db docs/index.html
           git diff --cached --quiet && echo "Nothing changed." || git commit -m "Automated refresh: week ${{ steps.week.outputs.week }}"
           git push
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload dashboard as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
