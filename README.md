@@ -17,7 +17,7 @@ turned on (one-time setup below).
 
 ## How the automation works
 
-`.github/workflows/refresh.yml` runs a few times a day on Thursday, Sunday
+`.github/workflows/refresh.yml` runs hourly on Thursday, Sunday
 and Monday (the pool's actual game days — tune the cron if you want a
 different cadence) and on manual trigger (Actions tab → Refresh Loser Pool
 dashboard → Run workflow):

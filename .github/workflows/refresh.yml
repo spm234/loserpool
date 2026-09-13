@@ -2,10 +2,10 @@ name: Refresh Loser Pool dashboard
 
 on:
   schedule:
-    # Every 3 hours on Thursday(4), Sunday(0) and Monday(1) UTC — the pool's
+    # Every hour on Thursday(4), Sunday(0) and Monday(1) UTC — the pool's
     # actual game days. Tune freely; GitHub's schedule uses UTC regardless
     # of where you are. Manual runs (below) always work too.
-    - cron: "0 */3 * * 4,0,1"
+    - cron: "0 * * * 4,0,1"
   workflow_dispatch: {}
 
 permissions:
