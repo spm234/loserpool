@@ -17,10 +17,10 @@ turned on (one-time setup below).
 
 ## How the automation works
 
-`.github/workflows/refresh.yml` runs hourly on Thursday, Sunday
-and Monday (the pool's actual game days — tune the cron if you want a
-different cadence) and on manual trigger (Actions tab → Refresh Loser Pool
-dashboard → Run workflow):
+`.github/workflows/refresh.yml` runs hourly Thursday through Sunday (the
+pool's actual game days) and every 6 hours the rest of the week — tune the
+cron if you want a different cadence — and on manual trigger (Actions tab →
+Refresh Loser Pool dashboard → Run workflow):
 
 1. Figures out the current NFL week from today's date (`current-week`).
 2. Pulls whatever's currently on The Odds API's board, matches each game to
