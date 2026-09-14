@@ -23,6 +23,7 @@ from typing import List, Optional
 
 from . import importer
 from .ratings import apply_elo_after_result
+from .teams import resolve_team
 
 ODDS_API_BASE = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
 SCORES_API_BASE = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/scores"
@@ -64,7 +65,11 @@ class LiveDataError(Exception):
 
 
 def _normalize(name: str) -> str:
-    return name.strip().lower()
+    """Resolves to the canonical nickname before lowercasing, so a DB team
+    name ("49ers") and The Odds API's full name ("San Francisco 49ers")
+    compare equal instead of silently never matching.
+    """
+    return resolve_team(name).lower()
 
 
 def _require_requests():
