@@ -51,15 +51,11 @@ jobs:
         id: week
         run: echo "week=$(python -m loser_pool.cli current-week)" >> "$GITHUB_OUTPUT"
 
-      - name: Sync schedule/spreads/results from The Odds API
-        env:
-          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      - name: Settle picks against manually recorded results
         run: |
-          if [ -z "$THE_ODDS_API_KEY" ]; then
-            echo "::warning::THE_ODDS_API_KEY secret not set — skipping odds/results sync. Add it under Settings > Secrets and variables > Actions."
-          else
-            python -m loser_pool.cli sync-week --season "$SEASON_YEAR" --week "${{ steps.week.outputs.week }}" --also-settle-previous
-          fi
+          for week in $(seq 1 "${{ steps.week.outputs.week }}"); do
+            python -m loser_pool.cli settle-week --season "$SEASON_YEAR" --week "$week"
+          done
 
       - name: Fetch pool sheet (public CSV export, no auth needed)
         run: curl -sL "https://docs.google.com/spreadsheets/d/${POOL_SHEET_ID}/export?format=csv" -o sheet.csv
