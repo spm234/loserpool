@@ -155,6 +155,62 @@ def test_render_dashboard_html_prefers_season_optimal_pick_over_raw_best(conn):
     assert "Bigger mismatch in Week 2" in html
 
 
+def test_render_dashboard_html_down_to_last_life_tile(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True, lives_per_entry=2)
+    db.get_or_create_entry(conn, "Rival", "Rival", lives_per_entry=2)
+    conn.commit()
+    picks.record_pick(conn, 2026, 1, "SPM", "Jaguars")
+    importer.record_game_result(conn, 2026, 1, "Jaguars", "Browns", outcome="away")  # Jaguars (picked) wins -> busts
+    picks.settle_week(conn, 2026, 1)
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Down to last life" in html
+    # SPM is down to 1 life, Rival (no pick yet) still has 2 -> exactly one entry down to its last life
+    assert "<div class='value'>1</div><div class='label'>Down to last life</div>" in html
+
+
+def test_render_dashboard_html_remaining_strength_section(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    importer.import_schedule(conn, 2026, 2, "Bengals,Ravens\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Remaining team strength" in html
+    assert "SPM" in html
+    assert html.index("Standings") < html.index("Remaining team strength")
+
+
+def test_render_dashboard_html_remaining_strength_excludes_eliminated(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    importer.import_schedule(conn, 2026, 2, "Bengals,Ravens\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True, lives_per_entry=1)
+    conn.commit()
+    picks.record_pick(conn, 2026, 1, "SPM", "Jaguars")
+    importer.record_game_result(conn, 2026, 1, "Jaguars", "Browns", outcome="away")  # busts, 1 life -> eliminated
+    picks.settle_week(conn, 2026, 1)
+    html = render_dashboard_html(conn, 2026, 2)
+    assert "Remaining team strength" not in html  # no alive entries left to rank
+
+
+def test_render_dashboard_html_remaining_strength_reflects_burned_good_matchups(conn):
+    # TeamA is a massive week-2 underdog (its best remaining matchup).
+    # "Burned" already spent TeamA in week 1, so by week 2 it's stuck with
+    # only a near-coinflip game; "Kept" never picked at all, so TeamA is
+    # still sitting there for it. Despite identical lives, Kept's remaining
+    # path should score better (higher avg loss%) and so should rank below
+    # (= better than) Burned in the worst-first table.
+    importer.record_game_result(conn, 2026, 1, "TeamA", "TeamC", favorite="home", margin=1)
+    importer.record_game_result(conn, 2026, 2, "TeamA", "TeamD", favorite="home", margin=40)
+    db.get_or_create_entry(conn, "Burned", "Burned", is_mine=True)
+    db.get_or_create_entry(conn, "Kept", "Kept")
+    conn.commit()
+    picks.record_pick(conn, 2026, 1, "Burned", "TeamA")
+    html = render_dashboard_html(conn, 2026, 2)
+    i = html.index("Remaining team strength")
+    section = html[i:html.index("</table>", i)]
+    assert section.index("Burned") < section.index("Kept")
+
+
 def test_render_dashboard_html_peak_week_note_when_current_week_is_best(conn):
     importer.record_game_result(conn, 2026, 1, "TeamA", "TeamB", favorite="home", margin=20)
     db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)

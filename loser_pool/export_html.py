@@ -32,7 +32,7 @@ from .team_outlook import (
     weekly_biggest_underdogs,
 )
 from .team_page import all_teams_with_pages, current_elo_rating, team_pickers, team_record, team_schedule
-from .teams import abbr_for, logo_url
+from .teams import ALL_NICKNAMES, abbr_for, logo_url
 
 STYLE = """
 :root {
@@ -271,6 +271,62 @@ def _render_recommendations(
     return f"<div class='card'><h2>This week's recommendations</h2>{''.join(sections)}</div>"
 
 
+def _render_remaining_strength(
+    conn: sqlite3.Connection,
+    season_year: int,
+    week_number: int,
+    entries,
+    cfg: LoserPoolConfig,
+) -> str:
+    """Ranks every still-alive entry by how strong its remaining (unused)
+    teams are on average — worst first. For each entry this solves the same
+    unlimited-life "best possible remaining path" assignment as the
+    reference full-season path above (full_season_plan), then averages the
+    loss probability across that path. An entry can have a perfect record
+    and still be in real trouble if the matchups that made it perfect are
+    already burned, leaving only teams that are hard to pick against —
+    lives remaining alone doesn't show that, this does.
+    """
+    alive = [e for e in entries if not e["eliminated"]]
+    if not alive:
+        return ""
+
+    weeks = [w for w in known_weeks(conn, season_year) if w >= week_number]
+    if not weeks:
+        return ""
+
+    rows_data = []
+    for e in alive:
+        exclude = used_teams(conn, e["id"], season_year)
+        plan = full_season_plan(conn, season_year, weeks, exclude_teams=exclude, cfg=cfg)
+        teams_left = len(ALL_NICKNAMES) - len(exclude & set(ALL_NICKNAMES))
+        avg_p_lose = sum(p.p_lose for p in plan) / len(plan) if plan else None
+        rows_data.append((e, teams_left, avg_p_lose, plan))
+
+    # No computable plan (nothing left to pick) sorts last rather than
+    # crashing on a None comparison.
+    rows_data.sort(key=lambda r: (r[2] is None, r[2] if r[2] is not None else 0.0))
+
+    rows = []
+    for e, teams_left, avg_p_lose, plan in rows_data:
+        avg_html = f"{avg_p_lose:.1%}" if avg_p_lose is not None else "—"
+        next_html = "—"
+        if plan:
+            nxt = plan[0]
+            loc = "home" if nxt.is_home else "away"
+            next_html = f"{_team_html(nxt.team)} wk{nxt.week_number} ({loc}, {nxt.p_lose:.0%})"
+        rows.append(
+            f"<tr class='{_lives_class(e['lives_remaining'])}'><td>{_esc(e['display_name'])}</td>"
+            f"<td>{e['lives_remaining']}</td><td>{teams_left}</td>"
+            f"<td>{avg_html}</td><td>{next_html}</td></tr>"
+        )
+    return f"""
+<div class="card">
+  <h2>Remaining team strength <span class="hint">— worst remaining options first: average loss probability across each entry's own best possible remaining-season path (unlimited-life assignment, same one behind "reference full-season path" above). Full lives doesn't mean safe — an entry can be undefeated with its good matchups already burned, leaving only teams that are hard to pick against.</span></h2>
+  <table><tr><th>Entry</th><th>Lives</th><th>Teams left</th><th>Avg loss% (remaining path)</th><th>Best remaining pick</th></tr>{''.join(rows)}</table>
+</div>"""
+
+
 def _render_team_usage(conn: sqlite3.Connection, season_year: int) -> str:
     usage = season_to_date_team_usage(conn, season_year)
     rows = "".join(
@@ -345,10 +401,12 @@ def render_dashboard_html(
     ).fetchall()
     alive = [e for e in entries if not e["eliminated"]]
     eliminated = [e for e in entries if e["eliminated"]]
+    one_bust = [e for e in alive if e["lives_remaining"] == cfg.lives_per_entry - 1]
 
     leader = ownership[0] if ownership else None
     tiles = [
         (str(len(alive)), "Entries alive"),
+        (str(len(one_bust)), "Down to last life"),
         (str(len(eliminated)), "Eliminated"),
         (str(len(entries)), "Total entries"),
         (f"{leader.team} ({leader.fraction_of_submitted:.0%})" if leader else "—", "Most-picked team"),
@@ -386,6 +444,7 @@ def render_dashboard_html(
 </div>"""
 
     recommendations_html = _render_recommendations(conn, season_year, week_number, entries, ownership_by_team, cfg)
+    remaining_strength_html = _render_remaining_strength(conn, season_year, week_number, entries, cfg)
     team_usage_html = _render_team_usage(conn, season_year)
     weekly_underdogs_html = _render_weekly_underdogs(conn, season_year, cfg)
     team_outlook_html = _render_team_outlook(conn, season_year, cfg)
@@ -423,6 +482,7 @@ def render_dashboard_html(
   </table>
 </div>
 
+{remaining_strength_html}
 {ownership_html}
 {team_usage_html}
 {weekly_underdogs_html}
