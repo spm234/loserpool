@@ -211,6 +211,35 @@ def test_render_dashboard_html_remaining_strength_reflects_burned_good_matchups(
     assert section.index("Burned") < section.index("Kept")
 
 
+def test_render_dashboard_html_remaining_strength_has_elo_column_and_is_sortable(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    importer.import_schedule(conn, 2026, 2, "Bengals,Ravens\n")
+    db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)
+    conn.commit()
+    html = render_dashboard_html(conn, 2026, 1)
+    assert "Avg Elo (remaining)" in html
+    assert "Best remaining pick" not in html  # replaced by the Elo column
+    assert "table class=\"sortable\" id=\"remaining-strength\"" in html
+    assert "data-key='avg_elo'" in html
+    assert "table.sortable" in html  # the click-to-sort script is present
+
+
+def test_render_dashboard_html_remaining_strength_sorted_by_lives_first(conn):
+    importer.import_schedule(conn, 2026, 1, "Jaguars,Browns\n")
+    importer.import_schedule(conn, 2026, 2, "Bengals,Ravens\n")
+    db.get_or_create_entry(conn, "OneLife", "OneLife", is_mine=True, lives_per_entry=2)
+    db.get_or_create_entry(conn, "TwoLives", "TwoLives", lives_per_entry=2)
+    conn.commit()
+    picks.record_pick(conn, 2026, 1, "OneLife", "Jaguars")
+    importer.record_game_result(conn, 2026, 1, "Jaguars", "Browns", outcome="away")  # busts OneLife to 1 life
+    picks.settle_week(conn, 2026, 1)
+    html = render_dashboard_html(conn, 2026, 2)
+    i = html.index("Remaining team strength")
+    section = html[i:html.index("</table>", i)]
+    # TwoLives (more lives) sorts first even though it was created second
+    assert section.index("TwoLives") < section.index("OneLife")
+
+
 def test_render_dashboard_html_peak_week_note_when_current_week_is_best(conn):
     importer.record_game_result(conn, 2026, 1, "TeamA", "TeamB", favorite="home", margin=20)
     db.get_or_create_entry(conn, "SPM", "SPM", is_mine=True)

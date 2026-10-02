@@ -84,6 +84,9 @@ h3 { font-size: 0.95rem; margin: 18px 0 8px 0; }
 table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+table.sortable th { cursor: pointer; user-select: none; }
+table.sortable th.sort-asc::after { content: " ↑"; }
+table.sortable th.sort-desc::after { content: " ↓"; }
 tr:last-child td { border-bottom: none; }
 .eliminated { opacity: 0.5; text-decoration: line-through; }
 .lives-2 { color: var(--good); font-weight: 600; }
@@ -279,13 +282,32 @@ def _render_remaining_strength(
     cfg: LoserPoolConfig,
 ) -> str:
     """Ranks every still-alive entry by how strong its remaining (unused)
-    teams are on average — worst first. For each entry this solves the same
-    unlimited-life "best possible remaining path" assignment as the
-    reference full-season path above (full_season_plan), then averages the
-    loss probability across that path. An entry can have a perfect record
-    and still be in real trouble if the matchups that made it perfect are
-    already burned, leaving only teams that are hard to pick against —
-    lives remaining alone doesn't show that, this does.
+    teams are, two different ways (click either column header to sort by
+    it — see the inline script at the bottom of the page):
+
+    - **Avg loss% (remaining path)**: this entry's own best possible
+      remaining-season plan (same unlimited-life assignment as the
+      "reference full-season path" above — full_season_plan), averaged
+      across that plan's per-week loss probabilities. This is matchup- and
+      schedule-aware and projected, not each team's real record — a market
+      spread when one exists, Elo-projected otherwise (see the Elo column
+      below). Higher = better for this entry (easier teams left to pick).
+    - **Avg Elo (remaining)**: the plain average current Elo rating
+      (ratings.py — this tool's own FiveThirtyEight-style power rating,
+      not fetched from anywhere) across every team this entry hasn't used
+      yet, regardless of whether they're even scheduled soon. Schedule-
+      independent team quality. LOWER = better for this entry (weaker
+      teams left = easier to find a confident "this team loses" pick) —
+      the opposite direction from the loss% column, so sorting either one
+      ascending/descending can point the same or opposite way; read the
+      arrow, not just "top of the list".
+
+    Rows are grouped by lives remaining first (more lives first, matching
+    the Standings table), then worst loss% first within each tier by
+    default — an entry can have a perfect record and still be in real
+    trouble if the matchups that made it perfect are already burned,
+    leaving only teams that are hard to pick against; lives remaining
+    alone doesn't show that, this does.
     """
     alive = [e for e in entries if not e["eliminated"]]
     if not alive:
@@ -299,31 +321,48 @@ def _render_remaining_strength(
     for e in alive:
         exclude = used_teams(conn, e["id"], season_year)
         plan = full_season_plan(conn, season_year, weeks, exclude_teams=exclude, cfg=cfg)
-        teams_left = len(ALL_NICKNAMES) - len(exclude & set(ALL_NICKNAMES))
+        remaining_teams = set(ALL_NICKNAMES) - exclude
+        teams_left = len(remaining_teams)
         avg_p_lose = sum(p.p_lose for p in plan) / len(plan) if plan else None
-        rows_data.append((e, teams_left, avg_p_lose, plan))
+        avg_elo = (
+            sum(current_elo_rating(conn, season_year, t, week_number, cfg) for t in remaining_teams) / teams_left
+            if remaining_teams
+            else None
+        )
+        rows_data.append((e, teams_left, avg_p_lose, avg_elo))
 
-    # No computable plan (nothing left to pick) sorts last rather than
-    # crashing on a None comparison.
-    rows_data.sort(key=lambda r: (r[2] is None, r[2] if r[2] is not None else 0.0))
+    # Lives tier first (more lives first, matching Standings), then worst
+    # loss% first within a tier. No computable loss% (nothing left to
+    # pick) sorts last within its tier rather than crashing on a None.
+    rows_data.sort(
+        key=lambda r: (-r[0]["lives_remaining"], r[2] is None, r[2] if r[2] is not None else 0.0)
+    )
 
     rows = []
-    for e, teams_left, avg_p_lose, plan in rows_data:
-        avg_html = f"{avg_p_lose:.1%}" if avg_p_lose is not None else "—"
-        next_html = "—"
-        if plan:
-            nxt = plan[0]
-            loc = "home" if nxt.is_home else "away"
-            next_html = f"{_team_html(nxt.team)} wk{nxt.week_number} ({loc}, {nxt.p_lose:.0%})"
+    for e, teams_left, avg_p_lose, avg_elo in rows_data:
+        avg_loss_sort = avg_p_lose if avg_p_lose is not None else -1
+        avg_loss_html = f"{avg_p_lose:.1%}" if avg_p_lose is not None else "—"
+        avg_elo_sort = avg_elo if avg_elo is not None else -1
+        avg_elo_html = f"{avg_elo:.0f}" if avg_elo is not None else "—"
         rows.append(
-            f"<tr class='{_lives_class(e['lives_remaining'])}'><td>{_esc(e['display_name'])}</td>"
-            f"<td>{e['lives_remaining']}</td><td>{teams_left}</td>"
-            f"<td>{avg_html}</td><td>{next_html}</td></tr>"
+            f"<tr class='{_lives_class(e['lives_remaining'])}'>"
+            f"<td data-key='entry' data-sort='{_esc(e['display_name'].lower())}'>{_esc(e['display_name'])}</td>"
+            f"<td data-key='lives' data-sort='{e['lives_remaining']}'>{e['lives_remaining']}</td>"
+            f"<td data-key='teams_left' data-sort='{teams_left}'>{teams_left}</td>"
+            f"<td data-key='avg_loss' data-sort='{avg_loss_sort}'>{avg_loss_html}</td>"
+            f"<td data-key='avg_elo' data-sort='{avg_elo_sort}'>{avg_elo_html}</td>"
+            f"</tr>"
         )
     return f"""
 <div class="card">
-  <h2>Remaining team strength <span class="hint">— worst remaining options first: average loss probability across each entry's own best possible remaining-season path (unlimited-life assignment, same one behind "reference full-season path" above). Full lives doesn't mean safe — an entry can be undefeated with its good matchups already burned, leaving only teams that are hard to pick against.</span></h2>
-  <table><tr><th>Entry</th><th>Lives</th><th>Teams left</th><th>Avg loss% (remaining path)</th><th>Best remaining pick</th></tr>{''.join(rows)}</table>
+  <h2>Remaining team strength <span class="hint">— click a column to sort. Grouped by lives remaining by default (more lives first), worst loss% first within each tier. Avg loss% is this entry's own best possible remaining-season path (schedule- and matchup-aware, higher = better); Avg Elo is the plain average rating of every unused team regardless of schedule (lower = better — weaker teams left are easier to pick against). Full lives doesn't mean safe — an entry can be undefeated with its good matchups already burned.</span></h2>
+  <table class="sortable" id="remaining-strength">
+    <thead><tr>
+      <th data-key="entry">Entry</th><th data-key="lives">Lives</th><th data-key="teams_left">Teams left</th>
+      <th data-key="avg_loss">Avg loss% (remaining path)</th><th data-key="avg_elo">Avg Elo (remaining)</th>
+    </tr></thead>
+    <tbody>{''.join(rows)}</tbody>
+  </table>
 </div>"""
 
 
@@ -488,6 +527,28 @@ def render_dashboard_html(
 {weekly_underdogs_html}
 {team_outlook_html}
 </div>
+<script>
+document.querySelectorAll('table.sortable').forEach(function (table) {{
+  var tbody = table.querySelector('tbody');
+  table.querySelectorAll('th[data-key]').forEach(function (th) {{
+    th.addEventListener('click', function () {{
+      var key = th.getAttribute('data-key');
+      var dir = th.classList.contains('sort-asc') ? 'desc' : 'asc';
+      table.querySelectorAll('th').forEach(function (h) {{ h.classList.remove('sort-asc', 'sort-desc'); }});
+      th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+      rows.sort(function (a, b) {{
+        var av = a.querySelector('td[data-key="' + key + '"]').getAttribute('data-sort');
+        var bv = b.querySelector('td[data-key="' + key + '"]').getAttribute('data-sort');
+        var an = parseFloat(av), bn = parseFloat(bv);
+        var cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv);
+        return dir === 'asc' ? cmp : -cmp;
+      }});
+      rows.forEach(function (r) {{ tbody.appendChild(r); }});
+    }});
+  }});
+}});
+</script>
 </body>
 </html>
 """

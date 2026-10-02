@@ -54,6 +54,9 @@ h3 { font-size: 0.95rem; margin: 18px 0 8px 0; }
 table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+table.sortable th { cursor: pointer; user-select: none; }
+table.sortable th.sort-asc::after { content: " ↑"; }
+table.sortable th.sort-desc::after { content: " ↓"; }
 tr:last-child td { border-bottom: none; }
 .eliminated { opacity: 0.5; text-decoration: line-through; }
 .lives-2 { color: var(--good); font-weight: 600; }
