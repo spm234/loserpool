@@ -74,6 +74,15 @@ _SPORTSBOOK_ABBR_TO_NICKNAME = {
     "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders",
 }
 
+# Common informal nicknames people actually type into a pool sheet, which
+# aren't the team's own canonical nickname or an ESPN/sportsbook code (e.g.
+# the pool's Google Sheet uses "Bucs" rather than "Buccaneers") — kept
+# separate from _SPORTSBOOK_ABBR_TO_NICKNAME since that one's specifically
+# for recognizing a grid's team-code lines, not freeform sheet text.
+_COLLOQUIAL_ALIASES = {
+    "Bucs": "Buccaneers",
+}
+
 _ALIAS_TO_NICKNAME: Dict[str, str] = {}
 _NICKNAME_TO_ABBR: Dict[str, str] = {}
 for _full, _nick, _abbr in _TEAMS:
@@ -82,6 +91,8 @@ for _full, _nick, _abbr in _TEAMS:
     _NICKNAME_TO_ABBR[_nick] = _abbr
 for _sb_abbr, _nick in _SPORTSBOOK_ABBR_TO_NICKNAME.items():
     _ALIAS_TO_NICKNAME.setdefault(_sb_abbr.lower(), _nick)
+for _colloquial, _nick in _COLLOQUIAL_ALIASES.items():
+    _ALIAS_TO_NICKNAME.setdefault(_colloquial.lower(), _nick)
 
 SPORTSBOOK_ABBRS = set(_SPORTSBOOK_ABBR_TO_NICKNAME.keys())
 

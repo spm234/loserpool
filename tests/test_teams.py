@@ -21,6 +21,15 @@ def test_resolve_team_unrecognized_passes_through_stripped():
     assert resolve_team(" TeamA ") == "TeamA"
 
 
+def test_resolve_team_colloquial_nickname():
+    # The pool's Google Sheet uses "Bucs" rather than "Buccaneers" — a
+    # sheet pick of "Bucs" must resolve to the same canonical nickname the
+    # schedule uses, or picks.record_pick can never find a matching game.
+    assert resolve_team("Bucs") == "Buccaneers"
+    assert resolve_team("bucs") == "Buccaneers"
+    assert resolve_team(" Bucs ") == "Buccaneers"
+
+
 def test_abbr_for_known_team():
     assert abbr_for("New England Patriots") == "ne"
     assert abbr_for("49ers") == "sf"

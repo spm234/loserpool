@@ -23,6 +23,15 @@ def test_record_pick_requires_scheduled_team(conn):
         picks.record_pick(conn, 2026, 1, "SPM", "Cowboys", is_mine=True)
 
 
+def test_record_pick_resolves_colloquial_nickname(conn):
+    # The pool's sheet uses "Bucs" for Tampa Bay; the schedule (from The
+    # Odds API / the season-long grid) only ever has "Buccaneers" — both
+    # must resolve to the same canonical team or this pick can never match.
+    importer.import_schedule(conn, 2026, 1, "Buccaneers,Bengals\n")
+    pick_id = picks.record_pick(conn, 2026, 1, "SPM", "Bucs", is_mine=True)
+    assert pick_id is not None
+
+
 def test_record_pick_then_settle_survives_when_team_loses(conn):
     _seed_week1(conn)
     picks.record_pick(conn, 2026, 1, "SPM", "Jaguars", is_mine=True)
